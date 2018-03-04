@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>lesson1.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.ln { color: #606366; font-weight: normal; font-style: normal; }
+.s0 { color: rgb(204,120,50); font-weight: bold; }
+.s1 { color: rgb(169,183,198); }
+.s2 { color: rgb(0,128,128); }
+.s3 { color: rgb(128,128,128); }
+.s4 { color: rgb(204,120,50); }
+.s5 { color: rgb(104,151,187); }
+</style>
+</head>
+<BODY BGCOLOR="#2b2b2b">
+<TABLE CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<TR><TD><CENTER>
+<FONT FACE="Arial, Helvetica" COLOR="#000000">
+lesson1.py</FONT>
+</center></TD></TR></TABLE>
+<pre>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np 
+</span><span class="s0">import </span><span class="s1">tensorflow </span><span class="s0">as </span><span class="s1">tf 
+</span><span class="s0">import </span><span class="s1">random 
+</span><span class="s0">import </span><span class="s1">pickle 
+</span><span class="s0">from </span><span class="s1">collections </span><span class="s0">import </span><span class="s1">Counter 
+ 
+</span><span class="s0">import </span><span class="s1">nltk 
+</span><span class="s0">from </span><span class="s1">nltk.tokenize </span><span class="s0">import </span><span class="s1">word_tokenize 
+ 
+</span><span class="s2">&quot;&quot;&quot; 
+'I'm super man' 
+tokenize: 
+['I', ''m', 'super','man' ]  
+&quot;&quot;&quot;</span><span class="s1"> 
+</span><span class="s0">from </span><span class="s1">nltk.stem </span><span class="s0">import </span><span class="s1">WordNetLemmatizer 
+ 
+</span><span class="s2">&quot;&quot;&quot; 
+词形还原(lemmatizer)，即把一个任何形式的英语单词还原到一般形式，与词根还原不同(stemmer)，后者是抽取一个单词的词根。 
+&quot;&quot;&quot;</span><span class="s1"> 
+ 
+pos_file = </span><span class="s2">'pos.txt'</span><span class="s1"> 
+neg_file = </span><span class="s2">'neg.txt'</span><span class="s1"> 
+ 
+ 
+</span><span class="s3"># 创建词汇表</span><span class="s1"> 
+</span><span class="s0">def </span><span class="s1">create_lexicon(pos_file</span><span class="s4">, </span><span class="s1">neg_file): 
+    lex = [] 
+ 
+    </span><span class="s3"># 读取文件</span><span class="s1"> 
+    </span><span class="s0">def </span><span class="s1">process_file(f): 
+        </span><span class="s0">with </span><span class="s1">open(pos_file</span><span class="s4">, </span><span class="s2">'r'</span><span class="s1">) </span><span class="s0">as </span><span class="s1">f: 
+            lex = [] 
+            lines = f.readlines() 
+            </span><span class="s3"># print(lines)</span><span class="s1"> 
+            </span><span class="s0">for </span><span class="s1">line </span><span class="s0">in </span><span class="s1">lines: 
+                words = word_tokenize(line.lower()) 
+                lex += words 
+            </span><span class="s0">return </span><span class="s1">lex 
+ 
+    lex += process_file(pos_file) 
+    lex += process_file(neg_file) 
+    </span><span class="s3"># print(len(lex))</span><span class="s1"> 
+    lemmatizer = WordNetLemmatizer() 
+    lex = [lemmatizer.lemmatize(word) </span><span class="s0">for </span><span class="s1">word </span><span class="s0">in </span><span class="s1">lex]  </span><span class="s3"># 词形还原 (cats-&gt;cat)</span><span class="s1"> 
+ 
+    word_count = Counter(lex) 
+    </span><span class="s3"># print(word_count)</span><span class="s1"> 
+    </span><span class="s3"># {'.': 13944, ',': 10536, 'the': 10120, 'a': 9444, 'and': 7108, 'of': 6624, 'it': 4748, 'to': 3940......}</span><span class="s1"> 
+    </span><span class="s3"># 去掉一些常用词,像the,a and等等，和一些不常用词; 这些词对判断一个评论是正面还是负面没有做任何贡献</span><span class="s1"> 
+    lex = [] 
+    </span><span class="s0">for </span><span class="s1">word </span><span class="s0">in </span><span class="s1">word_count: 
+        </span><span class="s0">if </span><span class="s1">word_count[word] &lt; </span><span class="s5">2000 </span><span class="s0">and </span><span class="s1">word_count[word] &gt; </span><span class="s5">20</span><span class="s1">:  </span><span class="s3"># 这写死了，好像能用百分比</span><span class="s1"> 
+            lex.append(word)  </span><span class="s3"># 齐普夫定律-使用Python验证文本的Zipf分布 http://blog.topspeedsnail.com/archives/9546</span><span class="s1"> 
+    </span><span class="s0">return </span><span class="s1">lex 
+ 
+ 
+lex = create_lexicon(pos_file</span><span class="s4">, </span><span class="s1">neg_file) 
+ 
+ 
+</span><span class="s3"># lex里保存了文本中出现过的单词。</span><span class="s1"> 
+ 
+</span><span class="s3"># 把每条评论转换为向量, 转换原理：</span><span class="s1"> 
+</span><span class="s3"># 假设lex为['woman', 'great', 'feel', 'actually', 'looking', 'latest', 'seen', 'is'] 当然实际上要大的多</span><span class="s1"> 
+</span><span class="s3"># 评论'i think this movie is great' 转换为 [0,1,0,0,0,0,0,1], 把评论中出现的字在lex中标记，出现过的标记为1，其余标记为0</span><span class="s1"> 
+</span><span class="s0">def </span><span class="s1">normalize_dataset(lex): 
+    dataset = [] 
+ 
+    </span><span class="s3"># lex:词汇表；review:评论；clf:评论对应的分类，[0,1]代表负面评论 [1,0]代表正面评论</span><span class="s1"> 
+    </span><span class="s0">def </span><span class="s1">string_to_vector(lex</span><span class="s4">, </span><span class="s1">review</span><span class="s4">, </span><span class="s1">clf): 
+        words = word_tokenize(line.lower()) 
+        lemmatizer = WordNetLemmatizer() 
+        words = [lemmatizer.lemmatize(word) </span><span class="s0">for </span><span class="s1">word </span><span class="s0">in </span><span class="s1">words] 
+ 
+        features = np.zeros(len(lex)) 
+        </span><span class="s0">for </span><span class="s1">word </span><span class="s0">in </span><span class="s1">words: 
+            </span><span class="s0">if </span><span class="s1">word </span><span class="s0">in </span><span class="s1">lex: 
+                features[lex.index(word)] = </span><span class="s5">1  </span><span class="s3"># 一个句子中某个词可能出现两次,可以用+=1，其实区别不大</span><span class="s1"> 
+        </span><span class="s0">return </span><span class="s1">[features</span><span class="s4">, </span><span class="s1">clf] 
+ 
+    </span><span class="s0">with </span><span class="s1">open(pos_file</span><span class="s4">, </span><span class="s2">'r'</span><span class="s1">) </span><span class="s0">as </span><span class="s1">f: 
+        lines = f.readlines() 
+        </span><span class="s0">for </span><span class="s1">line </span><span class="s0">in </span><span class="s1">lines: 
+            one_sample = string_to_vector(lex</span><span class="s4">, </span><span class="s1">line</span><span class="s4">, </span><span class="s1">[</span><span class="s5">1</span><span class="s4">, </span><span class="s5">0</span><span class="s1">])  </span><span class="s3"># [array([ 0.,  1.,  0., ...,  0.,  0.,  0.]), [1,0]]</span><span class="s1"> 
+            dataset.append(one_sample) 
+    </span><span class="s0">with </span><span class="s1">open(neg_file</span><span class="s4">, </span><span class="s2">'r'</span><span class="s1">) </span><span class="s0">as </span><span class="s1">f: 
+        lines = f.readlines() 
+        </span><span class="s0">for </span><span class="s1">line </span><span class="s0">in </span><span class="s1">lines: 
+            one_sample = string_to_vector(lex</span><span class="s4">, </span><span class="s1">line</span><span class="s4">, </span><span class="s1">[</span><span class="s5">0</span><span class="s4">, </span><span class="s5">1</span><span class="s1">])  </span><span class="s3"># [array([ 0.,  0.,  0., ...,  0.,  0.,  0.]), [0,1]]]</span><span class="s1"> 
+            dataset.append(one_sample) 
+ 
+    </span><span class="s3"># print(len(dataset))</span><span class="s1"> 
+    </span><span class="s0">return </span><span class="s1">dataset 
+ 
+ 
+dataset = normalize_dataset(lex) 
+random.shuffle(dataset) 
+</span><span class="s2">&quot;&quot;&quot; 
+#把整理好的数据保存到文件，方便使用。到此完成了数据的整理工作 
+with open('save.pickle', 'wb') as f: 
+    pickle.dump(dataset, f) 
+&quot;&quot;&quot;</span><span class="s1"> 
+ 
+</span><span class="s3"># 取样本中的10%做为测试数据</span><span class="s1"> 
+test_size = int(len(dataset) * </span><span class="s5">0.1</span><span class="s1">) 
+ 
+dataset = np.array(dataset) 
+ 
+train_dataset = dataset[:-test_size] 
+test_dataset = dataset[-test_size:] 
+ 
+</span><span class="s3"># Feed-Forward Neural Network</span><span class="s1"> 
+</span><span class="s3"># 定义每个层有多少'神经元''</span><span class="s1"> 
+n_input_layer = len(lex)  </span><span class="s3"># 输入层</span><span class="s1"> 
+ 
+n_layer_1 = </span><span class="s5">1000  </span><span class="s3"># hide layer</span><span class="s1"> 
+n_layer_2 = </span><span class="s5">1000  </span><span class="s3"># hide layer(隐藏层)听着很神秘，其实就是除输入输出层外的中间层</span><span class="s1"> 
+ 
+n_output_layer = </span><span class="s5">2  </span><span class="s3"># 输出层</span><span class="s1"> 
+ 
+ 
+</span><span class="s3"># 定义待训练的神经网络</span><span class="s1"> 
+</span><span class="s0">def </span><span class="s1">neural_network(data): 
+    </span><span class="s3"># 定义第一层&quot;神经元&quot;的权重和biases</span><span class="s1"> 
+    layer_1_w_b = {</span><span class="s2">'w_'</span><span class="s1">: tf.Variable(tf.random_normal([n_input_layer</span><span class="s4">, </span><span class="s1">n_layer_1]))</span><span class="s4">,</span><span class="s1"> 
+                   </span><span class="s2">'b_'</span><span class="s1">: tf.Variable(tf.random_normal([n_layer_1]))} 
+    </span><span class="s3"># 定义第二层&quot;神经元&quot;的权重和biases</span><span class="s1"> 
+    layer_2_w_b = {</span><span class="s2">'w_'</span><span class="s1">: tf.Variable(tf.random_normal([n_layer_1</span><span class="s4">, </span><span class="s1">n_layer_2]))</span><span class="s4">,</span><span class="s1"> 
+                   </span><span class="s2">'b_'</span><span class="s1">: tf.Variable(tf.random_normal([n_layer_2]))} 
+    </span><span class="s3"># 定义输出层&quot;神经元&quot;的权重和biases</span><span class="s1"> 
+    layer_output_w_b = {</span><span class="s2">'w_'</span><span class="s1">: tf.Variable(tf.random_normal([n_layer_2</span><span class="s4">, </span><span class="s1">n_output_layer]))</span><span class="s4">,</span><span class="s1"> 
+                        </span><span class="s2">'b_'</span><span class="s1">: tf.Variable(tf.random_normal([n_output_layer]))} 
+ 
+    </span><span class="s3"># w·x+b</span><span class="s1"> 
+    layer_1 = tf.add(tf.matmul(data</span><span class="s4">, </span><span class="s1">layer_1_w_b[</span><span class="s2">'w_'</span><span class="s1">])</span><span class="s4">, </span><span class="s1">layer_1_w_b[</span><span class="s2">'b_'</span><span class="s1">]) 
+    layer_1 = tf.nn.relu(layer_1)  </span><span class="s3"># 激活函数</span><span class="s1"> 
+    layer_2 = tf.add(tf.matmul(layer_1</span><span class="s4">, </span><span class="s1">layer_2_w_b[</span><span class="s2">'w_'</span><span class="s1">])</span><span class="s4">, </span><span class="s1">layer_2_w_b[</span><span class="s2">'b_'</span><span class="s1">]) 
+    layer_2 = tf.nn.relu(layer_2)  </span><span class="s3"># 激活函数</span><span class="s1"> 
+    layer_output = tf.add(tf.matmul(layer_2</span><span class="s4">, </span><span class="s1">layer_output_w_b[</span><span class="s2">'w_'</span><span class="s1">])</span><span class="s4">, </span><span class="s1">layer_output_w_b[</span><span class="s2">'b_'</span><span class="s1">]) 
+ 
+    </span><span class="s0">return </span><span class="s1">layer_output 
+ 
+ 
+</span><span class="s3"># 每次使用50条数据进行训练</span><span class="s1"> 
+batch_size = </span><span class="s5">50</span><span class="s1"> 
+ 
+X = tf.placeholder(</span><span class="s2">'float'</span><span class="s4">, </span><span class="s1">[</span><span class="s0">None</span><span class="s4">, </span><span class="s1">len(train_dataset[</span><span class="s5">0</span><span class="s1">][</span><span class="s5">0</span><span class="s1">])]) 
+</span><span class="s3"># [None, len(train_x)]代表数据数据的高和宽（矩阵），好处是如果数据不符合宽高，tensorflow会报错，不指定也可以。</span><span class="s1"> 
+Y = tf.placeholder(</span><span class="s2">'float'</span><span class="s1">) 
+ 
+ 
+</span><span class="s3"># 使用数据训练神经网络</span><span class="s1"> 
+</span><span class="s0">def </span><span class="s1">train_neural_network(X</span><span class="s4">, </span><span class="s1">Y): 
+    predict = neural_network(X) 
+    cost_func = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(predict</span><span class="s4">, </span><span class="s1">Y)) 
+    optimizer = tf.train.AdamOptimizer().minimize(cost_func)  </span><span class="s3"># learning rate 默认 0.001</span><span class="s1"> 
+ 
+    epochs = </span><span class="s5">13</span><span class="s1"> 
+    </span><span class="s0">with </span><span class="s1">tf.Session() </span><span class="s0">as </span><span class="s1">session: 
+        session.run(tf.initialize_all_variables()) 
+        epoch_loss = </span><span class="s5">0</span><span class="s1"> 
+ 
+        i = </span><span class="s5">0</span><span class="s1"> 
+        random.shuffle(train_dataset) 
+        train_x = dataset[:</span><span class="s4">, </span><span class="s5">0</span><span class="s1">] 
+        train_y = dataset[:</span><span class="s4">, </span><span class="s5">1</span><span class="s1">] 
+        </span><span class="s0">for </span><span class="s1">epoch </span><span class="s0">in </span><span class="s1">range(epochs): 
+            </span><span class="s0">while </span><span class="s1">i &lt; len(train_x): 
+                start = i 
+                end = i + batch_size 
+ 
+                batch_x = train_x[start:end] 
+                batch_y = train_y[start:end] 
+ 
+                _</span><span class="s4">, </span><span class="s1">c = session.run([optimizer</span><span class="s4">, </span><span class="s1">cost_func]</span><span class="s4">, </span><span class="s1">feed_dict={X: list(batch_x)</span><span class="s4">, </span><span class="s1">Y: list(batch_y)}) 
+                epoch_loss += c 
+                i += batch_size 
+ 
+            print(epoch</span><span class="s4">, </span><span class="s2">' : '</span><span class="s4">, </span><span class="s1">epoch_loss) 
+ 
+        text_x = test_dataset[:</span><span class="s4">, </span><span class="s5">0</span><span class="s1">] 
+        text_y = test_dataset[:</span><span class="s4">, </span><span class="s5">1</span><span class="s1">] 
+        correct = tf.equal(tf.argmax(predict</span><span class="s4">, </span><span class="s5">1</span><span class="s1">)</span><span class="s4">, </span><span class="s1">tf.argmax(Y</span><span class="s4">, </span><span class="s5">1</span><span class="s1">)) 
+        accuracy = tf.reduce_mean(tf.cast(correct</span><span class="s4">, </span><span class="s2">'float'</span><span class="s1">)) 
+        print(</span><span class="s2">'准确率: '</span><span class="s4">, </span><span class="s1">accuracy.eval({X: list(text_x)</span><span class="s4">, </span><span class="s1">Y: list(text_y)})) 
+ 
+ 
+train_neural_network(X</span><span class="s4">, </span><span class="s1">Y)</span></pre>
+</body>
+</html>
